@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flamingo — Image Dataset Builder for AI Training</title>
+<title>Flamingo — Image &amp; Video Tools for AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,119 +18,240 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <h1>Flamingo</h1>
     </div>
-    <p class="tagline">Build labeled image datasets, ready to train.</p>
+    <p class="tagline">Inspect a single image, or build a labeled dataset from photos and video for training.</p>
   </header>
 
-  <main class="steps">
+  <nav class="tabs" role="tablist" aria-label="Flamingo tools">
+    <button class="tab is-active" id="tabBtnInspector" type="button" role="tab" aria-selected="true" aria-controls="panelInspector">Image Inspector</button>
+    <button class="tab" id="tabBtnDataset" type="button" role="tab" aria-selected="false" aria-controls="panelDataset">Dataset Builder</button>
+  </nav>
 
-    <section class="step panel" aria-labelledby="step1-title">
+  <!-- ===================== Panel 1: Image Inspector ===================== -->
+  <section class="panel-section" id="panelInspector" role="tabpanel" aria-labelledby="tabBtnInspector">
+
+    <div class="workspace">
+
+      <div class="card card-preview">
+        <div class="dropzone" id="imgDropzone" tabindex="0" role="button" aria-label="Choose or drop an image">
+          <div class="dropzone-empty" id="imgDropzoneEmpty">
+            <svg class="icon icon-upload" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p class="dropzone-title">Drop an image here</p>
+            <p class="dropzone-sub">or tap to browse your files</p>
+          </div>
+          <div class="canvas-wrap" id="imgCanvasWrap" hidden>
+            <canvas id="imgPreviewCanvas"></canvas>
+          </div>
+        </div>
+        <input type="file" id="imgFileInput" accept="image/*" hidden>
+      </div>
+
+      <div class="card card-controls">
+
+        <div class="control-group">
+          <h2>Details</h2>
+          <dl class="stats-grid">
+            <div class="stat">
+              <dt>Dimensions</dt>
+              <dd id="imgStatDimensions">—</dd>
+            </div>
+            <div class="stat">
+              <dt>File size</dt>
+              <dd id="imgStatSize">—</dd>
+            </div>
+            <div class="stat">
+              <dt>Format</dt>
+              <dd id="imgStatFormat">—</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="control-group">
+          <h2>Grayscale</h2>
+          <p class="control-hint">Convert the loaded image to grayscale in place.</p>
+          <div class="button-row">
+            <button class="btn btn-secondary" id="imgBtnGrayscale" disabled>Convert to grayscale</button>
+            <button class="btn btn-ghost" id="imgBtnReset" disabled>Reset to original</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h2>Resize</h2>
+          <div class="field-row">
+            <label for="imgInputWidth">Width</label>
+            <input type="number" id="imgInputWidth" inputmode="numeric" min="1" placeholder="px" disabled>
+          </div>
+          <div class="field-row">
+            <label for="imgInputHeight">Height</label>
+            <input type="number" id="imgInputHeight" inputmode="numeric" min="1" placeholder="px" disabled>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="imgLockAspect" checked disabled>
+            <span>Lock aspect ratio</span>
+          </label>
+          <button class="btn btn-secondary" id="imgBtnResize" disabled>Apply resize</button>
+        </div>
+
+        <div class="control-group">
+          <h2>Numeric array</h2>
+          <p class="control-hint">View the image as the raw pixel values used by processing and machine-learning tools.</p>
+          <div class="button-row">
+            <button class="btn btn-secondary" id="imgBtnNumeric" disabled>Convert to numeric array</button>
+            <button class="btn btn-ghost" id="imgBtnDownloadArray" disabled>Download as JSON</button>
+          </div>
+          <dl class="stats-grid numeric-stats" id="imgNumericStats" hidden>
+            <div class="stat">
+              <dt>Array shape</dt>
+              <dd id="imgStatShape">—</dd>
+            </div>
+            <div class="stat">
+              <dt>Total values</dt>
+              <dd id="imgStatValues">—</dd>
+            </div>
+          </dl>
+          <pre class="numeric-preview" id="imgNumericPreview" hidden></pre>
+        </div>
+
+        <div class="control-group control-group-save">
+          <button class="btn btn-primary" id="imgBtnSave" disabled>
+            <svg class="icon icon-download" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 4v12M12 16l-5-5M12 16l5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 18v1.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Save processed image</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ===================== Panel 2: Dataset Builder ===================== -->
+  <section class="panel-section" id="panelDataset" role="tabpanel" aria-labelledby="tabBtnDataset" hidden>
+
+    <div class="step card">
       <div class="step-head">
         <span class="step-index">1</span>
-        <h2 id="step1-title">Define classes</h2>
+        <h2>Define classes</h2>
       </div>
       <p class="step-hint">Add the categories your model will learn to tell apart.</p>
       <div class="class-input-row">
-        <input type="text" id="classNameInput" placeholder="e.g. cat" maxlength="40">
-        <button class="btn btn-secondary" id="btnAddClass">Add class</button>
+        <input type="text" id="dsClassNameInput" placeholder="e.g. cat" maxlength="40">
+        <button class="btn btn-secondary" id="dsBtnAddClass">Add class</button>
       </div>
-      <div class="class-chips" id="classChips"></div>
-    </section>
+      <div class="class-chips" id="dsClassChips"></div>
+    </div>
 
-    <section class="step panel" aria-labelledby="step2-title">
+    <div class="step card">
       <div class="step-head">
         <span class="step-index">2</span>
-        <h2 id="step2-title">Import &amp; label images</h2>
+        <h2>Import &amp; label</h2>
       </div>
-      <p class="step-hint">Add images, then assign each one a class.</p>
+      <p class="step-hint">Add images or videos, then assign each one a class. Videos are split into frames automatically.</p>
 
-      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose or drop images">
+      <div class="dropzone" id="dsDropzone" tabindex="0" role="button" aria-label="Choose or drop images or videos">
         <svg class="icon icon-upload" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <p class="dropzone-title">Drop images here</p>
+        <p class="dropzone-title">Drop images or videos here</p>
         <p class="dropzone-sub">or tap to browse — multiple files supported</p>
       </div>
-      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <input type="file" id="dsFileInput" accept="image/*,video/*" multiple hidden>
 
-      <div class="gallery-summary" id="gallerySummary" hidden>
-        <span id="summaryTotal">0 images</span>
-        <span class="dot" aria-hidden="true">·</span>
-        <span id="summaryUnlabeled">0 unlabeled</span>
+      <div class="field-row">
+        <label for="dsFrameInterval">Video frame interval (seconds)</label>
+        <input type="number" id="dsFrameInterval" value="1" min="0.1" step="0.1" max="30">
+      </div>
+      <p class="step-hint">Each video is sampled into individual frames at this interval, then labeled like any other image. Long videos are capped at 90 frames.</p>
+
+      <div class="video-progress" id="dsVideoProgress" hidden>
+        <p class="video-progress-label" id="dsVideoProgressLabel">Extracting frames…</p>
+        <div class="progress-track"><div class="progress-fill" id="dsProgressFill"></div></div>
       </div>
 
-      <div class="gallery" id="gallery"></div>
-    </section>
+      <div class="gallery-summary" id="dsGallerySummary" hidden>
+        <span id="dsSummaryTotal">0 images</span>
+        <span class="dot" aria-hidden="true">·</span>
+        <span id="dsSummaryUnlabeled">0 unlabeled</span>
+      </div>
 
-    <section class="step panel" aria-labelledby="step3-title">
+      <div class="gallery" id="dsGallery"></div>
+    </div>
+
+    <div class="step card">
       <div class="step-head">
         <span class="step-index">3</span>
-        <h2 id="step3-title">Preprocessing</h2>
+        <h2>Preprocessing</h2>
       </div>
-      <p class="step-hint">Every image is resized to the same shape so a model can read them consistently.</p>
+      <p class="step-hint">Every item is resized to the same shape so a model can read them consistently.</p>
 
       <div class="field-row">
-        <label for="targetWidth">Width</label>
-        <input type="number" id="targetWidth" value="64" min="1" max="512">
+        <label for="dsTargetWidth">Width</label>
+        <input type="number" id="dsTargetWidth" value="64" min="1" max="512">
       </div>
       <div class="field-row">
-        <label for="targetHeight">Height</label>
-        <input type="number" id="targetHeight" value="64" min="1" max="512">
+        <label for="dsTargetHeight">Height</label>
+        <input type="number" id="dsTargetHeight" value="64" min="1" max="512">
       </div>
 
       <div class="segmented" role="radiogroup" aria-label="Color mode">
-        <button class="segmented-btn is-active" id="modeColor" type="button" role="radio" aria-checked="true" data-mode="rgb">Color (RGB)</button>
-        <button class="segmented-btn" id="modeGray" type="button" role="radio" aria-checked="false" data-mode="grayscale">Grayscale</button>
+        <button class="segmented-btn is-active" id="dsModeColor" type="button" role="radio" aria-checked="true" data-mode="rgb">Color (RGB)</button>
+        <button class="segmented-btn" id="dsModeGray" type="button" role="radio" aria-checked="false" data-mode="grayscale">Grayscale</button>
       </div>
 
       <label class="checkbox-row">
-        <input type="checkbox" id="normalizeToggle" checked>
+        <input type="checkbox" id="dsNormalizeToggle" checked>
         <span>Normalize pixel values to 0–1</span>
       </label>
-    </section>
+    </div>
 
-    <section class="step panel" aria-labelledby="step4-title">
+    <div class="step card">
       <div class="step-head">
         <span class="step-index">4</span>
-        <h2 id="step4-title">Split &amp; export</h2>
+        <h2>Split &amp; export</h2>
       </div>
 
       <div class="field-row">
-        <label for="splitRatio">Train / test split</label>
-        <output id="splitLabel" for="splitRatio">80% / 20%</output>
+        <label for="dsSplitRatio">Train / test split</label>
+        <output id="dsSplitLabel" for="dsSplitRatio">80% / 20%</output>
       </div>
-      <input type="range" id="splitRatio" min="50" max="95" value="80" step="5" class="slider">
+      <input type="range" id="dsSplitRatio" min="50" max="95" value="80" step="5" class="slider">
 
       <label class="checkbox-row">
-        <input type="checkbox" id="shuffleToggle" checked>
+        <input type="checkbox" id="dsShuffleToggle" checked>
         <span>Shuffle before splitting</span>
       </label>
 
-      <dl class="stats-grid" id="exportStats">
+      <dl class="stats-grid">
         <div class="stat">
           <dt>Output shape</dt>
-          <dd id="statOutputShape">64 × 64 × 3</dd>
+          <dd id="dsStatOutputShape">64 × 64 × 3</dd>
         </div>
         <div class="stat">
           <dt>Train / test images</dt>
-          <dd id="statSplitCounts">0 / 0</dd>
+          <dd id="dsStatSplitCounts">0 / 0</dd>
         </div>
       </dl>
 
-      <button class="btn btn-primary" id="btnExport" disabled>
+      <button class="btn btn-primary" id="dsBtnExport" disabled>
         <svg class="icon icon-download" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 4v12M12 16l-5-5M12 16l5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M4 18v1.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span>Export dataset (JSON)</span>
       </button>
-      <p class="export-note" id="exportNote">Add a class and label at least one image to enable export.</p>
-    </section>
+      <p class="export-note" id="dsExportNote">Add a class and label at least one item to enable export.</p>
+    </div>
 
-  </main>
+  </section>
 
   <footer class="site-footer">
-    <p>Runs locally in the browser — no image ever leaves your device.</p>
+    <p>Runs locally in your browser — no image or video ever leaves your device.</p>
   </footer>
 
 </div>
@@ -138,4 +259,3 @@
 <script src="script.js"></script>
 </body>
 </html>
-
