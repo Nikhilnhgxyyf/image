@@ -1,5 +1,5 @@
 /* ============================================
-   Flamingo — Image & Video Tools for AI
+   Datavue — Image & Video Tools for AI
    Design tokens — clean, light, single accent, no gradients
    ============================================ */
 
@@ -60,11 +60,20 @@ html, body {
 }
 
 .brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--accent);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+
+.brand-mark svg {
+  width: 19px;
+  height: 19px;
 }
 
 .brand h1 {
@@ -638,3 +647,4 @@ html, body {
 .site-footer { margin-top: 32px; text-align: center; }
 
 .site-footer p { margin: 0; font-size: 13px; color: var(--text-tertiary); }
+   
