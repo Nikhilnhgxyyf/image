@@ -1,5 +1,5 @@
 /* ============================================
-   Flamingo — Image & Video Tools for AI
+   Datavue — Image & Video Tools for AI
    Two independent tools sharing one page:
    the Image Inspector (single image) and the
    Dataset Builder (many images/videos, for training).
@@ -721,7 +721,7 @@
       const blob = new Blob([JSON.stringify(dataset)], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'flamingo-dataset.json';
+      link.download = 'datavue-dataset.json';
       link.click();
       URL.revokeObjectURL(link.href);
 
@@ -737,3 +737,4 @@
   updateOutputShape();
   updateExportState();
 })();
+
