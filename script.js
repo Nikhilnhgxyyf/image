@@ -1,108 +1,142 @@
 /* ============================================
-   Aperture — Image Information & Processing Tool
-   All processing happens locally via the Canvas API.
+   Flamingo — Image Dataset Builder for AI Training
+   Everything runs locally: images are labeled, resized,
+   converted to numeric arrays, split, and exported as JSON
+   for training elsewhere (Python, Colab, your own pipeline).
    ============================================ */
 
 (() => {
+  // ---------- State ----------
+
+  let classes = [];        // array of class name strings
+  let images = [];         // { id, url, img, label }
+  let colorMode = 'rgb';   // 'rgb' | 'grayscale'
+  let nextId = 1;
+
+  // ---------- DOM references ----------
+
+  const classNameInput = document.getElementById('classNameInput');
+  const btnAddClass = document.getElementById('btnAddClass');
+  const classChips = document.getElementById('classChips');
+
   const dropzone = document.getElementById('dropzone');
-  const dropzoneEmpty = document.getElementById('dropzoneEmpty');
-  const canvasWrap = document.getElementById('canvasWrap');
-  const canvas = document.getElementById('previewCanvas');
-  const ctx = canvas.getContext('2d');
   const fileInput = document.getElementById('fileInput');
+  const gallerySummary = document.getElementById('gallerySummary');
+  const summaryTotal = document.getElementById('summaryTotal');
+  const summaryUnlabeled = document.getElementById('summaryUnlabeled');
+  const gallery = document.getElementById('gallery');
 
-  const statDimensions = document.getElementById('statDimensions');
-  const statSize = document.getElementById('statSize');
-  const statFormat = document.getElementById('statFormat');
+  const targetWidth = document.getElementById('targetWidth');
+  const targetHeight = document.getElementById('targetHeight');
+  const modeColor = document.getElementById('modeColor');
+  const modeGray = document.getElementById('modeGray');
+  const normalizeToggle = document.getElementById('normalizeToggle');
 
-  const btnGrayscale = document.getElementById('btnGrayscale');
-  const btnReset = document.getElementById('btnReset');
-  const btnResize = document.getElementById('btnResize');
-  const btnSave = document.getElementById('btnSave');
-  const btnNumeric = document.getElementById('btnNumeric');
-  const btnDownloadArray = document.getElementById('btnDownloadArray');
+  const splitRatio = document.getElementById('splitRatio');
+  const splitLabel = document.getElementById('splitLabel');
+  const shuffleToggle = document.getElementById('shuffleToggle');
+  const statOutputShape = document.getElementById('statOutputShape');
+  const statSplitCounts = document.getElementById('statSplitCounts');
+  const btnExport = document.getElementById('btnExport');
+  const exportNote = document.getElementById('exportNote');
 
-  const inputWidth = document.getElementById('inputWidth');
-  const inputHeight = document.getElementById('inputHeight');
-  const lockAspect = document.getElementById('lockAspect');
+  // ---------- Classes (step 1) ----------
 
-  const numericStats = document.getElementById('numericStats');
-  const numericPreview = document.getElementById('numericPreview');
-  const statShape = document.getElementById('statShape');
-  const statValues = document.getElementById('statValues');
-
-  let originalImage = null;   // the pristine HTMLImageElement, for Reset
-  let originalFile = null;    // the source File, for size/format
-  let aspectRatio = 1;
-  let numericArray = null;    // last computed pixel array, for download
-
-  const controlEls = [btnGrayscale, btnReset, btnResize, btnSave, btnNumeric, inputWidth, inputHeight, lockAspect];
-
-  function setControlsEnabled(enabled) {
-    controlEls.forEach(el => { el.disabled = !enabled; });
+  function addClass(rawName) {
+    const name = rawName.trim();
+    if (!name) return;
+    const exists = classes.some(c => c.toLowerCase() === name.toLowerCase());
+    if (exists) return;
+    classes.push(name);
+    renderClassChips();
+    renderGallery();
+    updateExportState();
   }
 
-  function invalidateNumericArray() {
-    numericArray = null;
-    numericStats.hidden = true;
-    numericPreview.hidden = true;
-    btnDownloadArray.disabled = true;
+  function removeClass(name) {
+    classes = classes.filter(c => c !== name);
+    images.forEach(item => {
+      if (item.label === name) item.label = null;
+    });
+    renderClassChips();
+    renderGallery();
+    updateSummary();
+    updateExportState();
   }
 
-  function formatBytes(bytes) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  function renderClassChips() {
+    classChips.innerHTML = '';
+    if (classes.length === 0) {
+      const note = document.createElement('p');
+      note.className = 'empty-note';
+      note.textContent = 'No classes yet.';
+      classChips.appendChild(note);
+      return;
+    }
+    classes.forEach(name => {
+      const count = images.filter(i => i.label === name).length;
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+
+      const label = document.createElement('span');
+      label.textContent = name;
+      chip.appendChild(label);
+
+      const countEl = document.createElement('span');
+      countEl.className = 'chip-count';
+      countEl.textContent = String(count);
+      chip.appendChild(countEl);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'chip-remove';
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', `Remove class ${name}`);
+      removeBtn.textContent = '\u00D7';
+      removeBtn.addEventListener('click', () => removeClass(name));
+      chip.appendChild(removeBtn);
+
+      classChips.appendChild(chip);
+    });
   }
 
-  function formatName(mime) {
-    if (!mime) return 'Unknown';
-    return mime.replace('image/', '').toUpperCase();
-  }
+  btnAddClass.addEventListener('click', () => {
+    addClass(classNameInput.value);
+    classNameInput.value = '';
+    classNameInput.focus();
+  });
 
-  // ---------- 1. Load image ----------
+  classNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addClass(classNameInput.value);
+      classNameInput.value = '';
+    }
+  });
 
-  function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+  // ---------- Import & label (step 2) ----------
 
-    originalFile = file;
-    const url = URL.createObjectURL(file);
-    const img = new Image();
+  function handleFiles(fileList) {
+    Array.from(fileList).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
 
-    img.onload = () => {
-      originalImage = img;
-      aspectRatio = img.naturalWidth / img.naturalHeight;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
 
-      // 2. Display the image
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0);
+      img.onload = () => {
+        images.push({ id: nextId++, url, img, label: null });
+        renderGallery();
+        renderClassChips();
+        updateSummary();
+        updateExportState();
+      };
 
-      dropzoneEmpty.hidden = true;
-      canvasWrap.hidden = false;
-
-      // 3. Find image dimensions
-      updateStats(img.naturalWidth, img.naturalHeight, file);
-
-      inputWidth.value = img.naturalWidth;
-      inputHeight.value = img.naturalHeight;
-
-      setControlsEnabled(true);
-      invalidateNumericArray();
-      URL.revokeObjectURL(url);
-    };
-
-    img.src = url;
-  }
-
-  function updateStats(width, height, file) {
-    statDimensions.textContent = `${width} × ${height} px`;
-    statSize.textContent = formatBytes(file.size);
-    statFormat.textContent = formatName(file.type);
+      img.src = url;
+    });
   }
 
   fileInput.addEventListener('change', (e) => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
+    handleFiles(e.target.files);
+    fileInput.value = '';
   });
 
   dropzone.addEventListener('click', () => fileInput.click());
@@ -128,128 +162,226 @@
   });
 
   dropzone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    handleFiles(e.dataTransfer.files);
   });
 
-  // ---------- 4. Convert to grayscale ----------
+  function removeImage(id) {
+    const item = images.find(i => i.id === id);
+    if (item) URL.revokeObjectURL(item.url);
+    images = images.filter(i => i.id !== id);
+    renderGallery();
+    renderClassChips();
+    updateSummary();
+    updateExportState();
+  }
 
-  btnGrayscale.addEventListener('click', () => {
-    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = frame.data;
+  function renderGallery() {
+    gallery.innerHTML = '';
 
-    for (let i = 0; i < data.length; i += 4) {
-      // Luminosity method — matches how the eye perceives brightness
-      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      data[i] = data[i + 1] = data[i + 2] = gray;
-    }
+    images.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'gallery-item';
 
-    ctx.putImageData(frame, 0, 0);
-    invalidateNumericArray();
-  });
+      const img = document.createElement('img');
+      img.src = item.url;
+      img.alt = '';
+      card.appendChild(img);
 
-  btnReset.addEventListener('click', () => {
-    if (!originalImage) return;
-    canvas.width = originalImage.naturalWidth;
-    canvas.height = originalImage.naturalHeight;
-    ctx.drawImage(originalImage, 0, 0);
-    inputWidth.value = originalImage.naturalWidth;
-    inputHeight.value = originalImage.naturalHeight;
-    updateStats(originalImage.naturalWidth, originalImage.naturalHeight, originalFile);
-    invalidateNumericArray();
-  });
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', 'Remove image');
+      removeBtn.textContent = '\u00D7';
+      removeBtn.addEventListener('click', () => removeImage(item.id));
+      card.appendChild(removeBtn);
 
-  // ---------- 5. Resize ----------
+      const controls = document.createElement('div');
+      controls.className = 'item-controls';
 
-  inputWidth.addEventListener('input', () => {
-    if (!lockAspect.checked) return;
-    const w = parseInt(inputWidth.value, 10);
-    if (w > 0) inputHeight.value = Math.round(w / aspectRatio);
-  });
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'Class label');
 
-  inputHeight.addEventListener('input', () => {
-    if (!lockAspect.checked) return;
-    const h = parseInt(inputHeight.value, 10);
-    if (h > 0) inputWidth.value = Math.round(h * aspectRatio);
-  });
+      const unlabeledOpt = document.createElement('option');
+      unlabeledOpt.value = '';
+      unlabeledOpt.textContent = 'Unlabeled';
+      select.appendChild(unlabeledOpt);
 
-  btnResize.addEventListener('click', () => {
-    const targetWidth = parseInt(inputWidth.value, 10);
-    const targetHeight = parseInt(inputHeight.value, 10);
-    if (!targetWidth || !targetHeight || targetWidth < 1 || targetHeight < 1) return;
+      classes.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (item.label === name) opt.selected = true;
+        select.appendChild(opt);
+      });
 
-    // Draw current canvas content onto a scratch canvas, then resample
+      select.addEventListener('change', () => {
+        item.label = select.value || null;
+        renderClassChips();
+        updateSummary();
+        updateExportState();
+      });
+
+      controls.appendChild(select);
+      card.appendChild(controls);
+
+      gallery.appendChild(card);
+    });
+  }
+
+  function updateSummary() {
+    const total = images.length;
+    const unlabeled = images.filter(i => !i.label).length;
+    gallerySummary.hidden = total === 0;
+    summaryTotal.textContent = `${total} image${total === 1 ? '' : 's'}`;
+    summaryUnlabeled.textContent = `${unlabeled} unlabeled`;
+  }
+
+  // ---------- Preprocessing (step 3) ----------
+
+  function setColorMode(mode) {
+    colorMode = mode;
+    modeColor.classList.toggle('is-active', mode === 'rgb');
+    modeColor.setAttribute('aria-checked', String(mode === 'rgb'));
+    modeGray.classList.toggle('is-active', mode === 'grayscale');
+    modeGray.setAttribute('aria-checked', String(mode === 'grayscale'));
+    updateOutputShape();
+  }
+
+  modeColor.addEventListener('click', () => setColorMode('rgb'));
+  modeGray.addEventListener('click', () => setColorMode('grayscale'));
+
+  function updateOutputShape() {
+    const w = Math.max(1, parseInt(targetWidth.value, 10) || 1);
+    const h = Math.max(1, parseInt(targetHeight.value, 10) || 1);
+    const channels = colorMode === 'grayscale' ? 1 : 3;
+    statOutputShape.textContent = `${h} × ${w} × ${channels}`;
+  }
+
+  targetWidth.addEventListener('input', updateOutputShape);
+  targetHeight.addEventListener('input', updateOutputShape);
+
+  // ---------- Split (step 4) ----------
+
+  function updateSplitPreview() {
+    const ratio = parseInt(splitRatio.value, 10);
+    splitLabel.textContent = `${ratio}% / ${100 - ratio}%`;
+
+    const labeledCount = images.filter(i => i.label).length;
+    const trainCount = Math.round(labeledCount * (ratio / 100));
+    const testCount = labeledCount - trainCount;
+    statSplitCounts.textContent = `${trainCount} / ${testCount}`;
+  }
+
+  splitRatio.addEventListener('input', updateSplitPreview);
+
+  // ---------- Export readiness ----------
+
+  function updateExportState() {
+    const labeledCount = images.filter(i => i.label).length;
+    const ready = classes.length > 0 && labeledCount > 0;
+    btnExport.disabled = !ready;
+    exportNote.textContent = ready
+      ? `Ready to export ${labeledCount} labeled image${labeledCount === 1 ? '' : 's'}.`
+      : 'Add a class and label at least one image to enable export.';
+    updateSplitPreview();
+  }
+
+  // ---------- Processing an image into a numeric array ----------
+
+  function processImage(item, width, height, mode, normalize) {
     const scratch = document.createElement('canvas');
-    scratch.width = canvas.width;
-    scratch.height = canvas.height;
-    scratch.getContext('2d').drawImage(canvas, 0, 0);
+    scratch.width = width;
+    scratch.height = height;
+    const sctx = scratch.getContext('2d');
+    sctx.drawImage(item.img, 0, 0, width, height);
 
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    ctx.drawImage(scratch, 0, 0, targetWidth, targetHeight);
-
-    statDimensions.textContent = `${targetWidth} × ${targetHeight} px`;
-    invalidateNumericArray();
-  });
-
-  // ---------- 6. Convert to numeric array ----------
-
-  btnNumeric.addEventListener('click', () => {
-    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const { data, width, height } = frame;
-    const array = [];
+    const { data } = sctx.getImageData(0, 0, width, height);
+    const rows = [];
 
     for (let y = 0; y < height; y++) {
       const row = [];
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4;
-        row.push([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+        if (mode === 'grayscale') {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          row.push([normalize ? round4(gray / 255) : Math.round(gray)]);
+        } else {
+          if (normalize) {
+            row.push([round4(data[i] / 255), round4(data[i + 1] / 255), round4(data[i + 2] / 255)]);
+          } else {
+            row.push([data[i], data[i + 1], data[i + 2]]);
+          }
+        }
       }
-      array.push(row);
+      rows.push(row);
     }
 
-    numericArray = array;
+    return rows;
+  }
 
-    statShape.textContent = `${height} × ${width} × 4`;
-    statValues.textContent = (height * width * 4).toLocaleString();
-    numericStats.hidden = false;
+  function round4(n) {
+    return Math.round(n * 10000) / 10000;
+  }
 
-    const sample = array[0]
-      .slice(0, 3)
-      .map(pixel => `[${pixel.join(', ')}]`)
-      .join('\n');
-    numericPreview.textContent = `First row, first 3 pixels (R, G, B, A):\n${sample}\n…`;
-    numericPreview.hidden = false;
+  function shuffleArray(arr) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
 
-    btnDownloadArray.disabled = false;
-  });
+  // ---------- Export ----------
 
-  btnDownloadArray.addEventListener('click', () => {
-    if (!numericArray) return;
-    const blob = new Blob([JSON.stringify(numericArray)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'image-numeric-array.json';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  });
+  btnExport.addEventListener('click', () => {
+    btnExport.disabled = true;
+    const originalLabel = btnExport.querySelector('span').textContent;
+    btnExport.querySelector('span').textContent = 'Building dataset…';
 
-  // ---------- 7. Save processed image ----------
+    setTimeout(() => {
+      const width = Math.max(1, parseInt(targetWidth.value, 10) || 64);
+      const height = Math.max(1, parseInt(targetHeight.value, 10) || 64);
+      const normalize = normalizeToggle.checked;
+      const ratio = parseInt(splitRatio.value, 10) / 100;
 
-  btnSave.addEventListener('click', () => {
-    const mime = (originalFile && originalFile.type) || 'image/png';
-    const extension = mime.includes('png') ? 'png'
-      : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg'
-      : mime.includes('webp') ? 'webp'
-      : 'png';
+      let labeled = images.filter(i => i.label);
+      if (shuffleToggle.checked) labeled = shuffleArray(labeled);
 
-    canvas.toBlob((blob) => {
+      const splitIndex = Math.round(labeled.length * ratio);
+      const trainSet = labeled.slice(0, splitIndex);
+      const testSet = labeled.slice(splitIndex);
+
+      const buildSplit = (set) => set.map(item => ({
+        label: item.label,
+        data: processImage(item, width, height, colorMode, normalize),
+      }));
+
+      const dataset = {
+        classes,
+        image_shape: [height, width, colorMode === 'grayscale' ? 1 : 3],
+        normalized: normalize,
+        train: buildSplit(trainSet),
+        test: buildSplit(testSet),
+      };
+
+      const blob = new Blob([JSON.stringify(dataset)], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `processed-image.${extension}`;
+      link.download = 'flamingo-dataset.json';
       link.click();
       URL.revokeObjectURL(link.href);
-    }, mime);
+
+      btnExport.disabled = false;
+      btnExport.querySelector('span').textContent = originalLabel;
+    }, 30);
   });
+
+  // ---------- Init ----------
+
+  renderClassChips();
+  updateSummary();
+  updateOutputShape();
+  updateExportState();
 })();
-                              
+       
