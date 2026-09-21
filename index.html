@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aperture — Image Information &amp; Processing Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Aperture</h1>
+    </div>
+    <p class="tagline">Load, inspect, and process an image entirely in your browser.</p>
+  </header>
+
+  <main class="workspace">
+
+    <section class="panel panel-preview" aria-label="Image preview">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose or drop an image">
+        <div class="dropzone-empty" id="dropzoneEmpty">
+          <svg class="icon icon-upload" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p class="dropzone-title">Drop an image here</p>
+          <p class="dropzone-sub">or tap to browse your files</p>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap" hidden>
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </section>
+
+    <section class="panel panel-controls" aria-label="Image details and controls">
+
+      <div class="control-group">
+        <h2>Details</h2>
+        <dl class="stats-grid" id="statsGrid">
+          <div class="stat">
+            <dt>Dimensions</dt>
+            <dd id="statDimensions">—</dd>
+          </div>
+          <div class="stat">
+            <dt>File size</dt>
+            <dd id="statSize">—</dd>
+          </div>
+          <div class="stat">
+            <dt>Format</dt>
+            <dd id="statFormat">—</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="control-group">
+        <h2>Grayscale</h2>
+        <p class="control-hint">Convert the loaded image to grayscale in place.</p>
+        <div class="button-row">
+          <button class="btn btn-secondary" id="btnGrayscale" disabled>Convert to grayscale</button>
+          <button class="btn btn-ghost" id="btnReset" disabled>Reset to original</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Resize</h2>
+        <div class="field-row">
+          <label for="inputWidth">Width</label>
+          <input type="number" id="inputWidth" inputmode="numeric" min="1" placeholder="px" disabled>
+        </div>
+        <div class="field-row">
+          <label for="inputHeight">Height</label>
+          <input type="number" id="inputHeight" inputmode="numeric" min="1" placeholder="px" disabled>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="lockAspect" checked disabled>
+          <span>Lock aspect ratio</span>
+        </label>
+        <button class="btn btn-secondary" id="btnResize" disabled>Apply resize</button>
+      </div>
+
+      <div class="control-group">
+        <h2>Numeric array</h2>
+        <p class="control-hint">View the image as the raw pixel values used by processing and machine-learning tools.</p>
+        <div class="button-row">
+          <button class="btn btn-secondary" id="btnNumeric" disabled>Convert to numeric array</button>
+          <button class="btn btn-ghost" id="btnDownloadArray" disabled>Download as JSON</button>
+        </div>
+        <dl class="stats-grid numeric-stats" id="numericStats" hidden>
+          <div class="stat">
+            <dt>Array shape</dt>
+            <dd id="statShape">—</dd>
+          </div>
+          <div class="stat">
+            <dt>Total values</dt>
+            <dd id="statValues">—</dd>
+          </div>
+        </dl>
+        <pre class="numeric-preview" id="numericPreview" hidden></pre>
+      </div>
+
+      <div class="control-group control-group-save">
+        <button class="btn btn-primary" id="btnSave" disabled>
+          <svg class="icon icon-download" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 4v12M12 16l-5-5M12 16l5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 18v1.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Save processed image</span>
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Runs locally in the browser — no file ever leaves your device.</p>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
