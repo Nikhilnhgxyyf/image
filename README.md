@@ -1,4 +1,4 @@
-# Flamingo — Image & Video Tools for AI
+# Datavue— Image & Video Tools for AI
 
 One page, two tools: inspect a single image, or build a labeled dataset
 from photos and video for training a model. Everything runs locally in
