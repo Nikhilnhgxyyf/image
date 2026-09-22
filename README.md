@@ -82,8 +82,3 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Uploading to GitHub from mobile
-1. Create a new repository in the GitHub app (or github.com in your browser).
-2. Use "Add file → Upload files" and upload all the files above, keeping
-   their names exactly as they are.
-3. Commit directly to the `main` branch. 
